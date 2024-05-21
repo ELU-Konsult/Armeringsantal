@@ -75,7 +75,7 @@ if uploaded_files:
             xml_df = xml_to_df(file)
             df_main = df_main.merge(xml_df, how="outer", on="Littera")
 
-df_main = check_equality(df_main)
+    df_main = check_equality(df_main)
 
 # formattering av rader som skiljer sig
 
