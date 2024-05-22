@@ -3,6 +3,9 @@ import pandas as pd
 import xml.etree.ElementTree as et
 from io import StringIO
 import csv
+import ifcopenshell as ifc
+import ifcopenshell.util.pset
+from ifcopenshell import util
 
 
 def csv_to_df(file):
@@ -50,6 +53,56 @@ def xml_to_df(file):
     return df
 
 
+def create_rebar_dict_Tekla(psets):
+    try:
+        rebar_pset = psets["Tekla Reinforcement - Bending List"]
+        mark = rebar_pset["Group position number"]
+        props = [
+            ("Antal", "Number of bars in group"),
+            ("Kvalitet", "Grade"),
+            ("Diameter", "Size"),
+            ("Bockningstyp", "Shape"),
+        ]
+        dict = {}
+
+        for p in props:
+            dict[p[0]] = rebar_pset[p[1]]
+
+        return mark, dict
+
+    except:
+        return None
+
+
+def ifc_to_df(path):
+    stringio = StringIO(file.getvalue().decode("utf-8"))
+    ifc_file = ifc.file.from_string(stringio.read())
+    rebar = ifc_file.by_type("IfcReinforcingBar")
+    rebar_dict = {}
+    rvt = "Revit" in ifc_file.by_type("IFCAPPLICATION")[0]
+
+    for bar in rebar:
+        pset = ifcopenshell.util.element.get_psets(bar)
+        if rvt:
+            mark, dict = create_rebar_dict_RVT(pset)
+        else:
+            mark, dict = create_rebar_dict_Tekla(pset)
+        if mark in rebar_dict:
+            n_prev = rebar_dict[mark].pop("Antal")
+            n_new = dict.pop("Antal")
+            if rebar_dict[mark] == dict:
+                rebar_dict[mark]["Antal"] = n_prev + n_new
+            else:
+                # raise Exception(
+                #     f"{mark} has conflicting values: {dict} , {rebar_dict[mark]}"
+                # )
+                rebar_dict[mark]["Antal"] = n_prev + n_new  # temp
+        else:
+            rebar_dict[mark] = dict
+    df = pd.DataFrame(rebar_dict).transpose()
+    return df
+
+
 def check_equality(df):
     number_columns = df.drop("Littera", axis=1)
     equal = number_columns.eq(number_columns.iloc[:, 0], axis=0)
@@ -68,14 +121,17 @@ uploaded_files = st.sidebar.file_uploader("Ladda upp filer", accept_multiple_fil
 # Visa de uppladdade filerna
 if uploaded_files:
     for file in uploaded_files:
-        if file.name[-3:] == "csv":
+        if file.name[-3:].lower() == "csv":
             csv_df = csv_to_df(file)
             df_main = df_main.merge(csv_df, how="outer", on="Littera")
-        if file.name[-3:] == "xml":
+        if file.name[-3:].lower() == "xml":
             xml_df = xml_to_df(file)
             df_main = df_main.merge(xml_df, how="outer", on="Littera")
+        if file.name[-3:].lower() == "ifc":
+            ifc_df = ifc_to_df(file)
+            st.write(ifc_df)
 
-    df_main = check_equality(df_main)
+    # df_main = check_equality(df_main)
 
 
 # formattering av rader som skiljer sig
