@@ -7,6 +7,8 @@ import ifcopenshell as ifc
 import ifcopenshell.util.pset
 from ifcopenshell import util
 
+# st.set_page_config(layout="wide")
+
 
 def csv_to_df(file):
     stringio = StringIO(file.getvalue().decode("utf-8"))
@@ -152,16 +154,28 @@ def highlight_diff(s):
 # Huvudinnehållet i appen
 st.title("Kontroll armeringsantal")
 st.write(
-    "Ladda upp dina filer i sidofältet till vänster.\nTillåtna format: CSV, XML, IFC "
+    """Ladda upp dina filer för att jämföra nedan.  
+         Tillåtna format: CSV, XML, IFC """
 )
 
-st.dataframe(
+header = st.container()
+left, right = header.columns(2)
+left.file_uploader("Ladda upp fil", accept_multiple_files=False, key=left)
+right.file_uploader("Ladda upp fil", accept_multiple_files=False, key=right)
+
+with header.popover("IFC config"):
+    st.markdown("Hello World 👋")
+    name = st.text_input("What's your name?")
+
+result = st.container()
+
+result.dataframe(
     df_main.sort_values(by=["Littera"]).style.apply(highlight_diff, axis=1),
     hide_index=True,
 )
 # st.dataframe(styled_df, hide_index=True, column_config={"B": None}) # dölj kolumn
 
-st.download_button(
+result.download_button(
     "Ladda ner resultat",
     data=pd.DataFrame.to_csv(df_main, index=False),
     mime="text/csv",
