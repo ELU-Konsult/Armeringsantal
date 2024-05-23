@@ -113,33 +113,7 @@ def check_equality(df):
     return df.join(all_equal, how="left")
 
 
-# Create an empty DataFrame with column names and data types
-schema = {"Littera": "str"}
-df_main = pd.DataFrame(columns=schema.keys()).astype(schema)
-
-# Lägg till en sidebar med en filuppladdningswidget
-uploaded_files = st.sidebar.file_uploader("Ladda upp filer", accept_multiple_files=True)
-
-# Visa de uppladdade filerna
-if uploaded_files:
-    for file in uploaded_files:
-        if file.name[-3:].lower() == "csv":
-            csv_df = csv_to_df(file)
-            df_main = df_main.merge(csv_df, how="outer", on="Littera")
-        if file.name[-3:].lower() == "xml":
-            xml_df = xml_to_df(file)
-            df_main = df_main.merge(xml_df, how="outer", on="Littera")
-        if file.name[-3:].lower() == "ifc":
-            ifc_df = ifc_to_df(file)
-            st.write(ifc_df)
-
-    # df_main = check_equality(df_main)
-
-
-# formattering av rader som skiljer sig
-
-
-def highlight_diff(s):
+def highlight_diff(s):  # formattering av rader som skiljer sig
     return (
         ["background-color: lightgreen"] * len(s)
         if s.Lika
@@ -147,9 +121,58 @@ def highlight_diff(s):
     )
 
 
+ifc_default_tekla = {
+    "conf_quantity": "Tekla Reinforcement - Bending List / Number of bars in group",
+    "conf_diam": "Tekla Reinforcement - Bending List / Size",
+    "conf_shape": "Tekla Reinforcement - Bending List / Shape",
+    "conf_mark": "Tekla Reinforcement - Bending List / Group position number",
+    "conf_material": "Tekla Reinforcement - Bending List / Grade",
+}
+# Create an empty DataFrame with column names and data types
+schema = {"Littera": "str"}
+df_main = pd.DataFrame(columns=schema.keys()).astype(schema)
+
+
+sidebar = st.sidebar
+
+sidebar.header("Konfiguration IFC")
+sidebar.write("Format: pset / attribut")
+conf_quantity = sidebar.text_input(
+    "Antal", value=st.session_state.ifc_config["conf_quantity"]
+)
+conf_diam = sidebar.text_input(
+    "Diameter", value=st.session_state.ifc_config["conf_diam"]
+)
+conf_shape = sidebar.text_input(
+    "Bockningstyp", value=st.session_state.ifc_config["conf_shape"]
+)
+conf_mark = sidebar.text_input(
+    "Littera", value=st.session_state.ifc_config["conf_mark"]
+)
+conf_material = sidebar.text_input(
+    "Kvalitet", value=st.session_state.ifc_config["conf_material"]
+)
+if sidebar.button("Spara"):
+    st.session_state.ifc_config = {
+        "conf_quantity": conf_quantity,
+        "conf_diam": conf_diam,
+        "conf_shape": conf_shape,
+        "conf_mark": conf_mark,
+        "conf_material": conf_material,
+    }
+    st.rerun()
+if sidebar.button("Default"):
+    st.session_state.ifc_config = ifc_default_tekla
+    st.rerun()
+
 # fixa formatering
 # df_main = df_main.astype(int, errors="ignore")
 # df_main["Littera"] = df_main["Littera"].astype(str)
+
+if "ifc_config" not in st.session_state:
+    st.session_state.ifc_config = ifc_default_tekla
+
+st.session_state.ifc_config
 
 # Huvudinnehållet i appen
 st.title("Kontroll armeringsantal")
@@ -160,12 +183,31 @@ st.write(
 
 header = st.container()
 left, right = header.columns(2)
-left.file_uploader("Ladda upp fil", accept_multiple_files=False, key=left)
-right.file_uploader("Ladda upp fil", accept_multiple_files=False, key=right)
+file_left = left.file_uploader("Ladda upp fil", accept_multiple_files=False, key=left)
+file_right = right.file_uploader(
+    "Ladda upp fil", accept_multiple_files=False, key=right
+)
 
-with header.popover("IFC config"):
-    st.markdown("Hello World 👋")
-    name = st.text_input("What's your name?")
+
+# Visa de uppladdade filerna
+def upload_file(file, side):
+    if file.name[-3:].lower() == "csv":
+        csv_df = csv_to_df(file)
+        df_main = df_main.merge(csv_df, how="outer", on="Littera")
+    elif file.name[-3:].lower() == "xml":
+        xml_df = xml_to_df(file)
+        df_main = df_main.merge(xml_df, how="outer", on="Littera")
+    elif file.name[-3:].lower() == "ifc":
+        ifc_df = ifc_to_df(file)
+        st.write(ifc_df)
+    if file_left and file_right:
+        df_main = check_equality(df_main)
+
+
+if file_left:
+    upload_file(file_left, "left")
+if file_right:
+    upload_file(file_right, "right")
 
 result = st.container()
 
